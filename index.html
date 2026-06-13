@@ -141,6 +141,8 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .badge-closed{background:var(--surface3);color:var(--text3);border:1px solid var(--border2)}
 .sess-open{font-size:11px;font-weight:600;color:var(--gold);cursor:pointer;letter-spacing:0.5px;flex-shrink:0}
 .sess-confirm{font-size:11px;font-weight:600;color:#9DC9A8;cursor:pointer;letter-spacing:0.5px;flex-shrink:0;border:1px solid rgba(107,158,122,0.35);border-radius:20px;padding:4px 10px;background:var(--sage-dim)}
+.sess-reopen{font-size:11px;font-weight:600;color:var(--gold);cursor:pointer;letter-spacing:0.5px;flex-shrink:0;border:1px solid rgba(201,168,76,0.35);border-radius:20px;padding:4px 10px;background:var(--gold-dim)}
+.sess-reopen:hover{background:rgba(201,168,76,0.22)}
 .sess-empty{text-align:center;font-size:12px;color:var(--text3);padding:16px 0;font-style:italic}
 
 /* FOOTER */
@@ -684,10 +686,14 @@ async function loadSessions(){
       </div>
       <div class="sess-badge ${badgeClass}">${badge}</div>
       ${needsConfirm ? `<div class="sess-confirm" data-id="${s.id}">Confirm Paid</div>` : ''}
+      ${s.status === 'closed' ? `<div class="sess-reopen" data-id="${s.id}">Reopen</div>` : ''}
       <div class="sess-open" data-id="${s.id}">Open →</div>
     `;
     if(needsConfirm){
       div.querySelector('.sess-confirm').onclick = (e) => { e.stopPropagation(); markPaid(s); };
+    }
+    if(s.status === 'closed'){
+      div.querySelector('.sess-reopen').onclick = (e) => { e.stopPropagation(); reopenSession(s); };
     }
     div.querySelector('.sess-open').onclick = () => openSession(s);
     list.appendChild(div);
@@ -706,6 +712,16 @@ async function markPaid(s){
     paid_at: new Date().toISOString(),
     payment_requested: false
   }).eq('id', s.id);
+  if(error){ alert('Error: ' + error.message); return; }
+  loadSessions();
+}
+
+// ---- REOPEN ----
+// A closed session can't receive new "I've sent payment" requests (the RPC
+// only updates status='active' rows). Lets staff flip it back to active
+// from the session list if a client pays after the session was closed.
+async function reopenSession(s){
+  const { error } = await sb.from('visuals_sessions').update({status:'active'}).eq('id', s.id);
   if(error){ alert('Error: ' + error.message); return; }
   loadSessions();
 }
