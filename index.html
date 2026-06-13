@@ -280,9 +280,9 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       <p class="card-desc">One session = one client/group/performer. You upload their shots here; they get a private link + QR to pick, pay, and download on their own phone.</p>
       <div class="row">
         <input class="form-input" id="newLabel" type="text" placeholder="Label (e.g. &quot;DJ Booth Reel&quot;, &quot;Table 4&quot;) — optional">
-        <input class="form-input" id="newContact" type="text" placeholder="Their IG handle or phone — optional" style="max-width:200px">
+        <input class="form-input" id="newContact" type="text" placeholder="IG handle, phone, or email — optional" style="max-width:200px">
       </div>
-      <p class="card-desc" style="margin:8px 0 0">Contact lets you follow up if they don't unlock or download tonight — and if it's a phone number, "Notify Client" can text them the link directly. Totally optional.</p>
+      <p class="card-desc" style="margin:8px 0 0">Contact lets you follow up if they don't unlock or download tonight. If it's a phone number, "Notify Client" texts them the link; if it's an email, it opens a pre-filled email instead. Totally optional.</p>
       <button class="btn-primary" style="width:100%;margin-top:10px" onclick="createSession()">Create Session</button>
     </div>
 
@@ -794,15 +794,19 @@ function notifyClient(){
   const raw = (activeSession.contact || '').trim();
   const digits = raw.replace(/[^\d+]/g, '');
   const isPhone = digits.replace(/[^\d]/g, '').length >= 7;
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw);
 
   if(isPhone){
     const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const sep = isiOS ? '&' : '?';
     window.location.href = `sms:${digits}${sep}body=${encodeURIComponent(msg)}`;
+  } else if(isEmail){
+    const subject = 'Your ATCHÉ Visuals photos are ready ✨';
+    window.location.href = `mailto:${raw}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(msg)}`;
   } else {
     const fallback = raw
-      ? `"${raw}" doesn't look like a phone number, so I copied the message instead — paste it into their IG DM or a text:\n\n${msg}`
-      : `No phone number on file for this session — message copied to clipboard, paste it into IG DM or a text:\n\n${msg}`;
+      ? `"${raw}" doesn't look like a phone number or email, so I copied the message instead — paste it into their IG DM:\n\n${msg}`
+      : `No phone number or email on file for this session — message copied to clipboard, paste it into IG DM or a text:\n\n${msg}`;
     if(navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(msg).then(()=>alert(fallback)).catch(()=>alert(`Message to send:\n\n${msg}`));
     } else {
