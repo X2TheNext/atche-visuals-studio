@@ -308,7 +308,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
     </div>
 
     <div class="av-footer">
-      <a onclick="window.open('atche-visuals.html','_blank')">↗ Client Door Preview</a>
+      <a onclick="window.open('https://atche-visuals.atcheofficial.com/','_blank')">↗ Client Door Preview</a>
       <span style="color:var(--border2)">·</span>
       <a onclick="doSignOut()">Sign Out</a>
     </div>
@@ -592,8 +592,10 @@ function genCode(){
   return c;
 }
 
+const CLIENT_GALLERY_BASE = 'https://atche-visuals.atcheofficial.com/';
+
 function clientLink(code){
-  return location.origin + location.pathname.replace(/atche-visuals-studio\.html$/, 'atche-visuals.html') + '?s=' + code;
+  return CLIENT_GALLERY_BASE + '?s=' + code;
 }
 
 async function createSession(){
