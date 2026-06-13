@@ -126,6 +126,9 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .thumb{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:1;border:1px solid var(--border2);background:var(--surface2)}
 .thumb img, .thumb video{width:100%;height:100%;object-fit:cover;display:block}
 .thumb-tag{position:absolute;bottom:4px;left:4px;font-size:8px;letter-spacing:1px;text-transform:uppercase;font-weight:700;color:var(--gold-light);background:rgba(8,8,8,0.7);border-radius:4px;padding:1px 5px}
+.thumb-delete{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(8,8,8,0.65);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;color:var(--text2);cursor:pointer;z-index:2;transition:var(--t)}
+.thumb-delete:hover{background:var(--rose);border-color:var(--rose);color:#fff}
+.thumb-delete:active{transform:scale(0.92)}
 .upload-status{font-size:11px;color:var(--text3);margin-top:10px;text-align:center;letter-spacing:0.5px}
 
 /* SESSION LIST */
@@ -176,6 +179,11 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 @keyframes confirm-pulse{0%,100%{box-shadow:0 0 0 0 rgba(107,158,122,0.45)}50%{box-shadow:0 0 0 5px rgba(107,158,122,0)}}
 .sess-confirm{animation:confirm-pulse 2.2s ease-in-out infinite;transition:var(--t)}
 .sess-confirm:hover{background:rgba(107,158,122,0.28);animation-play-state:paused}
+
+/* ---- NOTIFY CLIENT EMPHASIS ---- */
+@keyframes notify-pulse{0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.45)}50%{box-shadow:0 0 0 5px rgba(201,168,76,0)}}
+.notify-pulse{animation:notify-pulse 2.2s ease-in-out infinite}
+.notify-pulse:hover{animation-play-state:paused}
 
 /* ---- BUTTON MICRO-INTERACTIONS ---- */
 .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,168,76,0.25)}
@@ -274,7 +282,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
         <input class="form-input" id="newLabel" type="text" placeholder="Label (e.g. &quot;DJ Booth Reel&quot;, &quot;Table 4&quot;) — optional">
         <input class="form-input" id="newContact" type="text" placeholder="Their IG handle or phone — optional" style="max-width:200px">
       </div>
-      <p class="card-desc" style="margin:8px 0 0">Contact lets you follow up if they don't unlock or download tonight — totally optional.</p>
+      <p class="card-desc" style="margin:8px 0 0">Contact lets you follow up if they don't unlock or download tonight — and if it's a phone number, "Notify Client" can text them the link directly. Totally optional.</p>
       <button class="btn-primary" style="width:100%;margin-top:10px" onclick="createSession()">Create Session</button>
     </div>
 
@@ -289,6 +297,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
         <div class="share-info">
           <div class="share-link" id="shareLink">—</div>
           <button class="btn-secondary" onclick="copyLink()">Copy Link</button>
+          <button class="btn-secondary" id="notifyBtn" onclick="notifyClient()" style="margin-left:6px">📩 Notify Client</button>
           <button class="btn-secondary" onclick="closeSession()" style="margin-left:6px;border-color:var(--text3);color:var(--text3)">Close Session</button>
         </div>
       </div>
@@ -768,8 +777,38 @@ async function handleFiles(fileList){
       if(e2){ status.textContent = 'Upload error (preview): ' + e2.message; }
     }
   }
-  status.textContent = `${files.length} file(s) uploaded ✓ — watermarked previews ready`;
+  status.textContent = `${files.length} file(s) uploaded ✓ — watermarked previews ready. Tap "Notify Client" to text them the link.`;
   loadThumbs();
+  const notifyBtn = document.getElementById('notifyBtn');
+  if(notifyBtn) notifyBtn.classList.add('notify-pulse');
+}
+
+// ---- NOTIFY CLIENT ----
+function notifyClient(){
+  if(!activeSession) return;
+  const link = clientLink(activeSession.code);
+  const who = activeSession.label ? activeSession.label + ' ' : '';
+  const msg = `Hey ${who}— your photos & reels from tonight are ready ✨ Pick your favorites and grab them here: ${link}`;
+  document.getElementById('notifyBtn').classList.remove('notify-pulse');
+
+  const raw = (activeSession.contact || '').trim();
+  const digits = raw.replace(/[^\d+]/g, '');
+  const isPhone = digits.replace(/[^\d]/g, '').length >= 7;
+
+  if(isPhone){
+    const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const sep = isiOS ? '&' : '?';
+    window.location.href = `sms:${digits}${sep}body=${encodeURIComponent(msg)}`;
+  } else {
+    const fallback = raw
+      ? `"${raw}" doesn't look like a phone number, so I copied the message instead — paste it into their IG DM or a text:\n\n${msg}`
+      : `No phone number on file for this session — message copied to clipboard, paste it into IG DM or a text:\n\n${msg}`;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(msg).then(()=>alert(fallback)).catch(()=>alert(`Message to send:\n\n${msg}`));
+    } else {
+      alert(`Message to send:\n\n${msg}`);
+    }
+  }
 }
 
 async function loadThumbs(){
@@ -796,8 +835,26 @@ async function loadThumbs(){
       tag.textContent = 'REEL';
       div.appendChild(tag);
     }
+    const del = document.createElement('div');
+    del.className = 'thumb-delete';
+    del.textContent = '✕';
+    del.title = 'Delete this photo';
+    del.onclick = (e) => { e.stopPropagation(); deletePhoto(f.name); };
+    div.appendChild(del);
     grid.appendChild(div);
   });
+}
+
+async function deletePhoto(fileName){
+  if(!activeSession) return;
+  if(!confirm('Delete this photo for everyone? This removes the full-res file and preview — it cannot be undone.')) return;
+  const code = activeSession.code;
+  const { error } = await sb.storage.from(BUCKET).remove([
+    `${code}/full/${fileName}`,
+    `${code}/preview/${fileName}.jpg`
+  ]);
+  if(error){ alert('Error: ' + error.message); return; }
+  loadThumbs();
 }
 
 function copyLink(){
